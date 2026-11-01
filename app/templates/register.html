@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Đăng ký · ConnectHub{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block content %}
+<main class="auth-card fade-in">
+  <div class="brand"><img src="{{ url_for('static', filename='images/logo.svg') }}" alt="" width="44" height="44"><span>ConnectHub</span></div>
+  <h1>Tạo tài khoản</h1>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}<div class="alert alert-{{ category }}" role="alert">{{ message }}</div>{% endfor %}
+  {% endwith %}
+  <form method="post" id="register-form" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% macro field(name, label, type="text", autocomplete="off") %}
+      <label for="{{ name }}">{{ label }}</label>
+      <input id="{{ name }}" name="{{ name }}" type="{{ type }}" autocomplete="{{ autocomplete }}"
+             value="{{ form.get(name, '') if type != 'password' else '' }}" required
+             class="{{ 'invalid' if errors.get(name) }}">
+      <div class="field-error" data-error-for="{{ name }}">{{ errors.get(name, '') }}</div>
+    {% endmacro %}
+    {{ field("full_name", "Họ tên", autocomplete="name") }}
+    {{ field("username", "Username", autocomplete="username") }}
+    {{ field("email", "Email", "email", "email") }}
+    {{ field("password", "Mật khẩu (tối thiểu 8 ký tự, có chữ và số)", "password", "new-password") }}
+    {{ field("confirm", "Nhập lại mật khẩu", "password", "new-password") }}
+    <button type="button" class="toggle-pw inline" data-toggle-password="password,confirm">Hiện / ẩn mật khẩu</button>
+    <button class="btn btn-primary btn-block" type="submit">Tạo tài khoản</button>
+  </form>
+  <p class="switch">Đã có tài khoản? <a href="{{ url_for('auth.login') }}">Đăng nhập</a></p>
+</main>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/auth.js') }}"></script>{% endblock %}

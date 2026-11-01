@@ -1,0 +1,24 @@
+# Bí mật và cấu hình riêng
+.env
+.env.*
+!.env.example
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+# Dữ liệu cục bộ: database và file người dùng KHÔNG được commit
+instance/*
+!instance/.gitkeep
+uploads/*
+!uploads/.gitkeep
+*.db
+*.sqlite3
+# Node (chỉ dùng cho test giao diện)
+node_modules/
+# Hệ điều hành / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

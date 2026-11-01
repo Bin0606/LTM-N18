@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}ConnectHub{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">{% endblock %}
+{% block body_class %}chat-page{% endblock %}
+{% block content %}
+<div id="app" data-user-id="{{ current_user.id }}" data-join-code="{{ join_code or '' }}"
+     data-max-upload-mb="{{ config.MAX_UPLOAD_MB }}" data-max-message="{{ config.MAX_MESSAGE_LENGTH }}">
+  <div id="conn-banner" class="conn-banner" role="status" hidden></div>
+
+  <!-- ===== Sidebar trái: phòng + chat cá nhân ===== -->
+  <aside id="left" class="sidebar left" aria-label="Danh sách phòng">
+    <div class="side-head">
+      <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="" width="32" height="32">
+      <strong class="side-title">ConnectHub</strong>
+      <button class="icon-btn" id="btn-theme" type="button" aria-label="Đổi giao diện sáng/tối" title="Sáng/Tối">◐</button>
+      <button class="icon-btn only-mobile" data-close-drawer type="button" aria-label="Đóng">✕</button>
+    </div>
+    <div class="side-actions">
+      <button class="btn btn-primary" id="btn-create-room" type="button">+ Tạo phòng</button>
+      <button class="btn" id="btn-join-room" type="button">Nhập mã</button>
+    </div>
+    <div class="side-search"><input id="side-search" type="search" placeholder="Tìm phòng hoặc người dùng…" autocomplete="off" aria-label="Tìm kiếm"></div>
+    <div class="side-scroll">
+      <div id="user-results" hidden>
+        <h3 class="side-h">Người dùng</h3><ul class="room-list" id="user-results-list"></ul>
+      </div>
+      <h3 class="side-h">Phòng</h3>
+      <ul class="room-list" id="room-list"><li class="empty">Đang tải…</li></ul>
+      <h3 class="side-h">Trò chuyện cá nhân</h3>
+      <ul class="room-list" id="dm-list"></ul>
+    </div>
+    <div class="side-foot">
+      <button class="user-chip" id="btn-settings" type="button" aria-label="Cài đặt tài khoản">
+        <span class="avatar" id="me-avatar"></span><span class="user-chip-text"><b id="me-name"></b><small id="me-status"></small></span><span aria-hidden="true">⚙</span>
+      </button>
+      <form method="post" action="{{ url_for('auth.logout') }}" id="logout-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn" type="submit">Đăng xuất</button>
+      </form>
+    </div>
+  </aside>
+
+  <!-- ===== Khu vực trung tâm ===== -->
+  <main id="center" aria-label="Khu vực trò chuyện">
+    <header class="chat-head">
+      <button class="icon-btn only-mobile" id="btn-menu" type="button" aria-label="Mở danh sách phòng">☰</button>
+      <div class="chat-title"><h2 id="room-title">ConnectHub</h2><p id="room-desc" class="muted"></p></div>
+      <button class="icon-btn" id="btn-room-search" type="button" aria-label="Tìm trong phòng" hidden>🔍</button>
+      <button class="icon-btn only-narrow" id="btn-members" type="button" aria-label="Thành viên và thông tin phòng" hidden>👥</button>
+    </header>
+    <section id="search-panel" class="search-panel" hidden>
+      <input id="room-search-input" type="search" placeholder="Tìm tin nhắn trong phòng…" autocomplete="off" aria-label="Tìm tin nhắn">
+      <ul id="room-search-results"></ul>
+    </section>
+    <section id="empty-state" class="empty-state">
+      <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="" width="64" height="64">
+      <h2>Chào mừng đến ConnectHub</h2>
+      <p class="muted">Chọn một phòng bên trái, tạo phòng mới hoặc nhập mã mời để bắt đầu.</p>
+      <button class="btn btn-primary only-mobile" id="btn-empty-menu" type="button">Mở danh sách phòng</button>
+    </section>
+    <section id="messages" class="messages" aria-live="polite" hidden>
+      <div class="load-more-wrap"><button class="btn" id="btn-load-more" type="button" hidden>Tải tin nhắn cũ hơn</button></div>
+      <div id="message-list"></div>
+      <div id="loading" class="loading" hidden><span class="spinner"></span> Đang tải…</div>
+    </section>
+    <button id="btn-new-msgs" class="new-msgs" type="button" hidden>↓ Tin nhắn mới</button>
+    <footer class="composer" id="composer" hidden>
+      <div id="upload-status" class="upload-status" hidden>
+        <span id="upload-name"></span><progress id="upload-progress" max="100" value="0"></progress>
+        <button class="icon-btn" id="btn-upload-cancel" type="button" aria-label="Hủy upload">✕</button>
+      </div>
+      <div class="composer-row">
+        <button class="icon-btn big" id="btn-attach" type="button" aria-label="Đính kèm file">📎</button>
+        <input type="file" id="file-input" hidden accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx,.txt">
+        <textarea id="msg-input" rows="1" placeholder="Nhập tin nhắn…" maxlength="{{ config.MAX_MESSAGE_LENGTH }}" aria-label="Nhập tin nhắn"></textarea>
+        <button class="btn btn-primary send" id="btn-send" type="button" aria-label="Gửi">Gửi ➤</button>
+      </div>
+    </footer>
+  </main>
+
+  <!-- ===== Sidebar phải: thành viên, thông tin, file ===== -->
+  <aside id="right" class="sidebar right" aria-label="Thông tin phòng" hidden>
+    <div class="side-head"><strong class="side-title">Thông tin phòng</strong>
+      <button class="icon-btn only-narrow" data-close-drawer type="button" aria-label="Đóng">✕</button></div>
+    <div class="side-scroll">
+      <section class="info-box">
+        <p id="info-desc" class="muted"></p>
+        <p class="muted small">Tạo ngày <span id="info-created"></span></p>
+        <div id="invite-box">
+          <label class="small muted" for="invite-link">Link mời</label>
+          <div class="copy-row"><input id="invite-link" readonly><button class="btn" id="btn-copy-link" type="button">Chép link</button></div>
+          <div class="copy-row"><input id="invite-code" readonly aria-label="Mã phòng"><button class="btn" id="btn-copy-code" type="button">Chép mã</button></div>
+        </div>
+        <div class="room-actions">
+          <button class="btn" id="btn-edit-room" type="button" hidden>Sửa phòng</button>
+          <button class="btn btn-danger" id="btn-leave-room" type="button" hidden>Rời phòng</button>
+          <button class="btn btn-danger" id="btn-delete-room" type="button" hidden>Xóa phòng</button>
+        </div>
+      </section>
+      <h3 class="side-h">Thành viên (<span id="member-count">0</span>)</h3>
+      <ul class="member-list" id="member-list"></ul>
+      <h3 class="side-h">File đã chia sẻ</h3>
+      <div class="side-search"><input id="file-filter" type="search" placeholder="Lọc theo tên file…" autocomplete="off" aria-label="Lọc file"></div>
+      <ul class="file-list" id="file-list"></ul>
+    </div>
+  </aside>
+  <div id="backdrop" class="backdrop" hidden></div>
+
+  <!-- ===== Hộp thoại ===== -->
+  <dialog id="dlg-create"><form method="dialog" class="dlg" id="form-create">
+    <h3>Tạo phòng mới</h3>
+    <label for="create-name">Tên phòng</label><input id="create-name" maxlength="80" required>
+    <label for="create-desc">Mô tả</label><textarea id="create-desc" maxlength="500" rows="3"></textarea>
+    <p class="dlg-error" role="alert"></p>
+    <div class="dlg-actions"><button class="btn" type="button" data-dlg-close>Hủy</button><button class="btn btn-primary" type="submit">Tạo phòng</button></div>
+  </form></dialog>
+  <dialog id="dlg-join"><form method="dialog" class="dlg" id="form-join">
+    <h3>Tham gia bằng mã hoặc link</h3>
+    <label for="join-code">Mã phòng hoặc link mời</label><input id="join-code" required autocomplete="off">
+    <p class="dlg-error" role="alert"></p>
+    <div class="dlg-actions"><button class="btn" type="button" data-dlg-close>Hủy</button><button class="btn btn-primary" type="submit">Tham gia</button></div>
+  </form></dialog>
+  <dialog id="dlg-edit"><form method="dialog" class="dlg" id="form-edit">
+    <h3>Sửa phòng</h3>
+    <label for="edit-name">Tên phòng</label><input id="edit-name" maxlength="80" required>
+    <label for="edit-desc">Mô tả</label><textarea id="edit-desc" maxlength="500" rows="3"></textarea>
+    <p class="dlg-error" role="alert"></p>
+    <div class="dlg-actions"><button class="btn" type="button" data-dlg-close>Hủy</button><button class="btn btn-primary" type="submit">Lưu</button></div>
+  </form></dialog>
+  <dialog id="dlg-settings"><form method="dialog" class="dlg" id="form-settings">
+    <h3>Tài khoản</h3>
+    <div class="avatar-row"><span class="avatar big" id="set-avatar"></span>
+      <button class="btn" type="button" id="btn-avatar">Đổi ảnh đại diện</button>
+      <input type="file" id="avatar-input" hidden accept=".jpg,.jpeg,.png,.webp"></div>
+    <p class="muted small" id="set-account"></p>
+    <label for="set-name">Tên hiển thị</label><input id="set-name" maxlength="80" required>
+    <label for="set-status">Trạng thái cá nhân</label><input id="set-status" maxlength="120" placeholder="Ví dụ: Đang học bài">
+    <p class="dlg-error" role="alert"></p>
+    <div class="dlg-actions"><button class="btn" type="button" data-dlg-close>Đóng</button><button class="btn btn-primary" type="submit">Lưu</button></div>
+  </form></dialog>
+  <dialog id="dlg-confirm"><form method="dialog" class="dlg">
+    <h3 id="confirm-title"></h3><p id="confirm-text" class="muted"></p>
+    <div class="dlg-actions"><button class="btn" type="button" data-dlg-close>Hủy</button><button class="btn btn-danger" id="confirm-ok" type="button">Đồng ý</button></div>
+  </form></dialog>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/vendor/socket.io.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% endblock %}
