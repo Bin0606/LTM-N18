@@ -1,5 +1,0 @@
--r requirements.txt
-pytest==9.2.0
-requests==2.34.2
-websocket-client==1.9.2
-moto[s3]==5.2.5
